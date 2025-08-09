@@ -99,6 +99,53 @@ function loadWholeTab(tab){
   })();
 })();
 
+// ---- Autoplay ที่ชัวร์ทุกเบราว์เซอร์ ----
+function enableSafeAutoplay(audioEl) {
+  if (!audioEl) return;
+
+  // บังคับโหมด autoplay แบบที่เบราว์เซอร์ยอม
+  audioEl.muted = true;
+  audioEl.autoplay = true;
+  audioEl.setAttribute('playsinline', '');
+
+  // เริ่มเล่นแบบเงียบทันที (เบราว์เซอร์ควรยอม)
+  audioEl.play().catch(() => { /* เงียบไว้ เบราว์เซอร์บางตัวจะเริ่มเมื่อ canplay เอง */ });
+
+  // ปุ่ม/ท่าทางแรก = ปลด mute แล้วเล่นต่อพร้อมเสียง
+  const unmute = () => {
+    audioEl.muted = false;
+    audioEl.play().catch(()=>{});
+    // ยกเลิกตัวดัก event หลังปลดแล้ว
+    window.removeEventListener('click', unmute, {capture:true});
+    window.removeEventListener('touchstart', unmute, {capture:true});
+    window.removeEventListener('keydown', unmute, {capture:true});
+    const btn = document.getElementById('unmuteBtn');
+    if (btn) btn.remove();
+  };
+
+  // ดัก “การโต้ตอบครั้งแรก”
+  window.addEventListener('click', unmute, {capture:true, once:true});
+  window.addEventListener('touchstart', unmute, {capture:true, once:true});
+  window.addEventListener('keydown', unmute, {capture:true, once:true});
+
+  // สร้างปุ่ม “เปิดเสียง” เล็ก ๆ ข้างเครื่องเล่น (เผื่อผู้ใช้หาไม่เจอ)
+  if (!document.getElementById('unmuteBtn')) {
+    const wrap = document.getElementById('audioWrap') || audioEl.parentElement;
+    if (wrap) {
+      const btn = document.createElement('button');
+      btn.id = 'unmuteBtn';
+      btn.textContent = 'เปิดเสียง';
+      Object.assign(btn.style, {
+        marginTop: '8px', padding: '6px 10px', borderRadius: '999px',
+        border: '1px solid #cbd5e1', background:'#e2e8f0', cursor:'pointer',
+        fontWeight:'600'
+      });
+      btn.addEventListener('click', unmute);
+      wrap.appendChild(btn);
+    }
+  }
+}
+
 function render(b){
   if(els.pageTitle) els.pageTitle.textContent = b["ชื่อหนังสือ"] || "ไม่ทราบชื่อ";
   if(els.title)       els.title.textContent       = b["ชื่อหนังสือ"] || "";
@@ -108,5 +155,10 @@ function render(b){
   if(els.score)       els.score.textContent       = b["คะแนน"]        || "-";
   if(els.cover && b["รูปปก"])     els.cover.src = b["รูปปก"];
   if(els.audio && b["audio_url"]) els.audio.src = b["audio_url"];
+
+  if (els.audio && b["audio_url"]) {
+    els.audio.src = b["audio_url"];
+    enableSafeAutoplay(els.audio);   // <<< เพิ่มบรรทัดนี้
+  }
   if(els.bookSection) els.bookSection.style.display = "grid";
 }
