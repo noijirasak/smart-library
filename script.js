@@ -77,4 +77,73 @@ const csvUrlById = (tab, wantId) =>
   `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq` +
   `?tqx=out:csv` +
   `&sheet=${encodeURIComponent(tab)}` +
-  `&tq=${encodeURIComponent(`select * where A = ${Number(wantId)}`)}`*
+  `&tq=${encodeURIComponent(`select * where A = ${Number(wantId)}`)}` +
+  `&cachebust=${Date.now()}`;
+
+// โหลด “เฉพาะแถวของ id” จากแท็บที่กำหนด (ผลลัพธ์ 0 หรือ 1 แถว)
+function loadRowById(tab, wantId){
+  return new Promise((resolve, reject) => {
+    Papa.parse(csvUrlById(tab, wantId), {
+      download: true,
+      header: true,
+      skipEmptyLines: true,
+      complete: (res) => {
+        const rows = (res.data || []).map(remapRowKeys);
+        showDebug({ tab, rows: rows.length, sample: rows[0] || null });
+        resolve(rows[0] || null);
+      },
+      error: (err) => reject(err)
+    });
+  });
+}
+
+// === Main ===
+(function(){
+  const params = new URLSearchParams(location.search);
+  const rawId  = (params.get("id")  || "").trim();
+  const cat    = (params.get("cat") || "").trim();  // 000/100/.../900
+  if(!rawId) return showError('กรุณาระบุ <code>?id=เลขลำดับ</code> เช่น <code>?id=1</code>');
+  const wantId = normId(rawId);
+
+  (async () => {
+    try{
+      if(cat){
+        // ระบุแท็บ: โหลดเฉพาะแท็บนั้น
+        const row = await loadRowById(cat, wantId);
+        if(!row) return showError(`ไม่พบลำดับ ${rawId} ในแท็บ ${cat}`);
+        return render(row);
+      }
+
+      // ไม่ระบุแท็บ: ค้นทุกแท็บ แต่โหลดแบบ “เฉพาะ id” จากแต่ละแท็บ
+      const hits = [];
+      for(const tab of SHEET_TABS){
+        const row = await loadRowById(tab, wantId);
+        if(row) hits.push({tab, row});
+      }
+      if(hits.length === 0){
+        return showError(`ไม่พบลำดับ ${rawId} ในแท็บใด ๆ`);
+      }
+      if(hits.length > 1){
+        const list = hits.map(h => h.tab).join(", ");
+        return showError(`พบลำดับ ${rawId} หลายแท็บ (${list}) — โปรดระบุ &cat= ที่ต้องการ`);
+      }
+      render(hits[0].row);
+    }catch(e){
+      showError("โหลดข้อมูลผิดพลาด: " + e);
+    }
+  })();
+})();
+
+function render(b){
+  if(els.pageTitle) els.pageTitle.textContent = b["ชื่อหนังสือ"] || "ไม่ทราบชื่อ";
+  if(els.title)      els.title.textContent      = b["ชื่อหนังสือ"] || "";
+  if(els.author)     els.author.textContent     = b["ผู้แต่ง"]      || "";
+  if(els.category)   els.category.textContent   = b["เลขหมวดหมู่"]  || "";
+  if(els.description)els.description.textContent= b["คำอธิบาย"]     || "";
+  if(els.score)      els.score.textContent      = b["คะแนน"]        || "-";
+
+  if(els.cover && b["รูปปก"])     els.cover.src = b["รูปปก"];
+  if(els.audio && b["audio_url"]) els.audio.src = b["audio_url"];
+
+  if(els.bookSection) els.bookSection.style.display = "grid";
+}
