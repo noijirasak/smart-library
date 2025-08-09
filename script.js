@@ -108,21 +108,42 @@ function enableSafeAutoplay(audioEl) {
   audioEl.autoplay = true;
   audioEl.setAttribute('playsinline', '');
 
-  // เริ่มเล่นแบบเงียบทันที (เบราว์เซอร์ควรยอม)
-  audioEl.play().catch(() => { /* เงียบไว้ เบราว์เซอร์บางตัวจะเริ่มเมื่อ canplay เอง */ });
+  // พยายามเล่นแบบเงียบทันที
+  const tryPlay = () => audioEl.play().catch(() => {});
+  // ถ้ายังไม่พร้อม ให้รอจน canplay แล้วค่อยสั่งเล่น
+  if (audioEl.readyState >= 2) tryPlay();
+  else audioEl.addEventListener('canplay', tryPlay, { once: true })
 
-  // ปุ่ม/ท่าทางแรก = ปลด mute แล้วเล่นต่อพร้อมเสียง
-  const unmute = () => {
+  // โชว์ปุ่ม “เปิดเสียง” ให้ผู้ใช้กดครั้งแรกเพื่อปลด mute
+  const wrap = document.getElementById('audioWrap') || audioEl.parentElement;
+  if (wrap && !document.getElementById('unmuteBtn')) {
+    const btn = document.createElement('button');
+    btn.id = 'unmuteBtn';
+    btn.textContent = 'เปิดเสียง';
+    Object.assign(btn.style, {
+      marginTop:'8px', padding:'6px 10px', borderRadius:'999px',
+      border:'1px solid #cbd5e1', background:'#e2e8f0', cursor:'pointer',
+      fontWeight:'600'
+    });
+    btn.addEventListener('click', () => {
+      audioEl.muted = false;
+      audioEl.play().catch(()=>{});
+      btn.remove();
+    });
+    wrap.appendChild(btn);
+  }
+  // เผื่อผู้ใช้คลิกที่ไหนก็ได้บนหน้า → ปลดเสียงให้ด้วย
+  const unmuteOnce = () => {
     audioEl.muted = false;
     audioEl.play().catch(()=>{});
-    // ยกเลิกตัวดัก event หลังปลดแล้ว
-    window.removeEventListener('click', unmute, {capture:true});
-    window.removeEventListener('touchstart', unmute, {capture:true});
-    window.removeEventListener('keydown', unmute, {capture:true});
-    const btn = document.getElementById('unmuteBtn');
-    if (btn) btn.remove();
+    window.removeEventListener('click', unmuteOnce, true);
+    window.removeEventListener('touchstart', unmuteOnce, true);
+    const b = document.getElementById('unmuteBtn');
+    if (b) b.remove();
   };
-
+  window.addEventListener('click', unmuteOnce, { capture:true, once:true });
+  window.addEventListener('touchstart', unmuteOnce, { capture:true, once:true });
+}
   // ดัก “การโต้ตอบครั้งแรก”
   window.addEventListener('click', unmute, {capture:true, once:true});
   window.addEventListener('touchstart', unmute, {capture:true, once:true});
