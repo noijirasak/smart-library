@@ -165,7 +165,7 @@ function enableSafeAutoplay(audioEl) {
       wrap.appendChild(btn);
     }
   }
-}
+
 
 function render(b){
   if(els.pageTitle) els.pageTitle.textContent = b["ชื่อหนังสือ"] || "ไม่ทราบชื่อ";
