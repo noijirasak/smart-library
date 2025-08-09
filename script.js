@@ -67,30 +67,23 @@ function toArabicDigits(str){
   const th="๐๑๒๓๔๕๖๗๘๙", ar="0123456789";
   return String(str||"").replace(/[๐-๙]/g, d => ar[th.indexOf(d)]);
 }
-function normId(x){
-  return toArabicDigits(x).replace(/[^\d]/g,"");
+function onlyDigits(x){
+  return toArabicDigits(x).replace(/[^\d]/g,""); // << แก้ตรงนี้
 }
 
-// === โหลดแบบ “ให้ Google Sheets กรองให้ตั้งแต่ต้นทาง” ===
-//   ใช้ query: select * where A = <id>   (A = คอลัมน์ลำดับ)
-const csvUrlById = (tab, wantId) =>
-  `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq` +
-  `?tqx=out:csv` +
-  `&sheet=${encodeURIComponent(tab)}` +
-  `&tq=${encodeURIComponent(`select * where A = ${Number(wantId)}`)}` +
-  `&cachebust=${Date.now()}`;
+const csvUrl = (tab) =>
+  `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab)}&cachebust=${Date.now()}`;
 
-// โหลด “เฉพาะแถวของ id” จากแท็บที่กำหนด (ผลลัพธ์ 0 หรือ 1 แถว)
-function loadRowById(tab, wantId){
+function loadOneTab(tab){
   return new Promise((resolve, reject) => {
-    Papa.parse(csvUrlById(tab, wantId), {
+    Papa.parse(csvUrl(tab), {
       download: true,
       header: true,
       skipEmptyLines: true,
       complete: (res) => {
         const rows = (res.data || []).map(remapRowKeys);
-        showDebug({ tab, rows: rows.length, sample: rows[0] || null });
-        resolve(rows[0] || null);
+        showDebug({tab, rows: rows.length, sample: rows[0] || null});
+        resolve(rows);
       },
       error: (err) => reject(err)
     });
@@ -102,32 +95,21 @@ function loadRowById(tab, wantId){
   const params = new URLSearchParams(location.search);
   const rawId  = (params.get("id")  || "").trim();
   const cat    = (params.get("cat") || "").trim();  // 000/100/.../900
-  if(!rawId) return showError('กรุณาระบุ <code>?id=เลขลำดับ</code> เช่น <code>?id=1</code>');
-  const wantId = normId(rawId);
+  if(!rawId) return showError('กรุณาระบุ <code>?id=เลขลำดับ</code> ใน URL เช่น <code>?id=1</code>');
+  const wantId = String(parseInt(onlyDigits(rawId) || "0", 10));
+
+  const order = (!cat) ? SHEET_TABS.slice() : [cat, ...SHEET_TABS.filter(t => t !== cat)];
 
   (async () => {
     try{
-      if(cat){
-        // ระบุแท็บ: โหลดเฉพาะแท็บนั้น
-        const row = await loadRowById(cat, wantId);
-        if(!row) return showError(`ไม่พบลำดับ ${rawId} ในแท็บ ${cat}`);
-        return render(row);
+      let hit = null;
+      for(const tab of order){
+        const rows = await loadOneTab(tab);
+        hit = rows.find(r => String(parseInt(onlyDigits(r["ลำดับ"]) || "0",10)) === wantId);
+        if(hit) break;
       }
-
-      // ไม่ระบุแท็บ: ค้นทุกแท็บ แต่โหลดแบบ “เฉพาะ id” จากแต่ละแท็บ
-      const hits = [];
-      for(const tab of SHEET_TABS){
-        const row = await loadRowById(tab, wantId);
-        if(row) hits.push({tab, row});
-      }
-      if(hits.length === 0){
-        return showError(`ไม่พบลำดับ ${rawId} ในแท็บใด ๆ`);
-      }
-      if(hits.length > 1){
-        const list = hits.map(h => h.tab).join(", ");
-        return showError(`พบลำดับ ${rawId} หลายแท็บ (${list}) — โปรดระบุ &cat= ที่ต้องการ`);
-      }
-      render(hits[0].row);
+      if(!hit) return showError(`ไม่พบหนังสือ ลำดับ = ${rawId} ในแท็บใด ๆ`);
+      render(hit);
     }catch(e){
       showError("โหลดข้อมูลผิดพลาด: " + e);
     }
