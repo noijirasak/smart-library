@@ -4,29 +4,20 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>หนังสือพูดได้ | Smart Library</title>
-  <style>
-    *{box-sizing:border-box}
-    body{margin:0;font-family:system-ui,-apple-system,'Segoe UI',Roboto,'Noto Sans Thai',Arial,sans-serif;color:#0f172a;background:#f8fafc}
-    .container{max-width:980px;margin:0 auto;padding:24px}
-    header{text-align:center;margin-bottom:16px}
-    h1{margin:8px 0 0;font-size:2rem}
-    .subtitle{margin:4px 0 0;color:#475569}
-    .book{display:grid;grid-template-columns:320px 1fr;gap:24px;background:#fff;padding:24px;border-radius:16px;box-shadow:0 10px 24px rgba(2,6,23,.08)}
-    .cover{width:100%;height:auto;border-radius:12px;box-shadow:0 6px 16px rgba(2,6,23,.1);background:#e2e8f0}
-    .meta p{line-height:1.6;margin:6px 0}
-    .audio{margin-top:12px}
-    .audio h2{margin:8px 0;font-size:1.1rem}
-    .note{font-size:.9rem;color:#64748b}
-    .err{background:#fee2e2;border:1px solid #ef4444;color:#7f1d1d;padding:12px;border-radius:12px}
-    @media (max-width:760px){.book{grid-template-columns:1fr}}
-  </style>
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <link rel="stylesheet" href="style.css"/>
+  <!-- PapaParse CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js" defer></script>
+  <script src="script.js" defer></script>
 </head>
 <body>
   <main class="container">
     <header>
       <h1 id="page-title">กำลังโหลดข้อมูลหนังสือ...</h1>
-      <p class="subtitle">ใส่ <code>?id=เลขลำดับ</code> (และถ้ารู้หมวด ใส่ <code>&cat=000</code> หรือ 100,…,900)</p>
+      <p class="subtitle">
+        ใช้พารามิเตอร์ <code>?id=เลขลำดับ</code>
+        และถ้ารู้หมวดให้เพิ่ม <code>&cat=000</code> (หรือ 100,…,900)
+        <span class="muted">| เพิ่ม <code>&debug=1</code> เพื่อดูสถานะการโหลด</span>
+      </p>
     </header>
 
     <section class="book" id="book-section" style="display:none">
@@ -46,137 +37,8 @@
       </div>
     </section>
 
+    <section id="debug" class="debug" style="display:none"></section>
     <section id="error" class="err" style="display:none"></section>
   </main>
-
-  <script>
-  (function(){
-    // --- ตั้งค่าชีตของคุณ ---
-    const SHEET_ID  = "1agyu31GI2YGD-42in3P7hZytsKNO-kg-JDdfvlJL7q0";
-    const SHEET_TABS = ["000","100","200","300","400","500","600","700","800","900"];
-
-    // --- อ้างอิง element ---
-    const $ = id => document.getElementById(id);
-    const els = {
-      pageTitle: $("page-title"),
-      bookSection: $("book-section"),
-      error: $("error"),
-      cover: $("cover"),
-      title: $("title"),
-      author: $("author"),
-      category: $("category"),
-      description: $("description"),
-      score: $("score"),
-      audio: $("audio"),
-    };
-
-    // --- รับพารามิเตอร์ ---
-    const params = new URLSearchParams(location.search);
-    const id  = (params.get("id")  || "").trim();  // เลขในคอลัมน์ "ลำดับ"
-    const cat = (params.get("cat") || "").trim();  // 000/100/.../900 (ถ้ามี)
-
-    if(!id){
-      return showError('กรุณาระบุ <code>?id=เลขลำดับ</code> ใน URL เช่น <code>?id=1</code>');
-    }
-
-    // สร้างลิงก์ CSV ต่อแผ่นงาน
-    const csvUrl = (tab) =>
-      `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab)}`;
-
-    // ลำดับการค้นหา: ถ้ามี cat ให้หาแผ่นนั้นก่อน แล้วค่อยที่เหลือ
-    const order = (() => {
-      if(!cat) return SHEET_TABS.slice();
-      const preferred = cat; // เพราะคุณตั้งชื่อแท็บเป็นตัวเลขล้วน
-      return [preferred, ...SHEET_TABS.filter(t => t !== preferred)];
-    })();
-
-    // โหลดจากทีละแผ่นงาน จนกว่าจะเจอ row ที่ลำดับตรง id
-    (async () => {
-      try{
-        let found = null;
-        for(const tab of order){
-          const row = await loadOneTab(tab);
-          if(row){ found = row; break; }
-        }
-        if(!found) return showError(`ไม่พบหนังสือ ลำดับ = ${id} ในแท็บใด ๆ`);
-        render(found);
-      }catch(e){
-        showError("โหลดข้อมูลผิดพลาด: " + e);
-      }
-    })();
-
-    function normKey(s){
-  return (s||"")
-    .replace(/[\u200B-\u200D\uFEFF]/g,"") // ลบตัวซ่อน
-    .replace(/\s+/g,"")                   // ลบช่องว่างทั้งหมด
-    .trim();
-}
-
-function remapRowKeys(row){
-  const want = {
-    "ลำดับ":"ลำดับ",
-    "ชื่อหนังสือ":"ชื่อหนังสือ",
-    "ผู้แต่ง":"ผู้แต่ง",
-    "เลขหมวดหมู่":"เลขหมวดหมู่",
-    "คำอธิบาย":"คำอธิบาย",
-    "รูปปก":"รูปปก",
-    "audio_url":"audio_url",
-    "คะแนน":"คะแนน"
-  };
-  const out = {};
-  const wantNorm = {};
-  Object.keys(want).forEach(k => wantNorm[normKey(k)] = want[k]);
-
-  for(const k in row){
-    const kn = normKey(k);
-    const target = wantNorm[kn];
-    if(target){
-      out[target] = (row[k] ?? "").toString().trim();
-    }
-  }
-  return out;
-}
-
-function loadOneTab(tab){
-  return new Promise((resolve, reject) => {
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab)}`;
-    Papa.parse(url, {
-      download: true,
-      header: true,
-      skipEmptyLines: true,
-      complete: (res) => {
-        const rows = res.data || [];
-        const clean = rows.map(remapRowKeys);
-        const hit = clean.find(r => (r["ลำดับ"] || "") === id);
-        resolve(hit || null);
-      },
-      error: (err) => reject(err)
-    });
-  });
-}
-
-
-    function render(b){
-      setText(els.pageTitle, b["ชื่อหนังสือ"] || "ไม่ทราบชื่อ");
-      setText(els.title,      b["ชื่อหนังสือ"] || "");
-      setText(els.author,     b["ผู้แต่ง"]      || "");
-      setText(els.category,   b["เลขหมวดหมู่"]  || "");
-      setText(els.description,b["คำอธิบาย"]     || "");
-      setText(els.score,      b["คะแนน"]        || "-");
-
-      if(b["รูปปก"])    els.cover.src = b["รูปปก"];
-      if(b["audio_url"]) els.audio.src = b["audio_url"];
-
-      els.bookSection.style.display = "grid";
-    }
-
-    function setText(el, v){ if(el) el.textContent = v; }
-    function showError(msg){
-      setText(els.pageTitle, "เกิดข้อผิดพลาด");
-      els.error.style.display = "block";
-      els.error.innerHTML = msg;
-    }
-  })();
-  </script>
 </body>
 </html>
