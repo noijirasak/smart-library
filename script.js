@@ -46,8 +46,8 @@ function onlyDigits(x){ return toArabicDigits(x).replace(/[^\d]/g,""); }
 
 // === ใช้ Google Sheets กรองตั้งแต่ต้นทาง — รองรับทั้งเลขและสตริง ===
 const csvUrlById = (tab, wantId) => {
-  const id = String(wantId).trim();
-  const tq = `select * where A = ${id} or A = '${id.replace(/'/g, "\\'")}'`;
+  const id = String(wantId).trim().replace(/'/g, "\\'");
+  const tq = `select * where A = '${id}'`;
   return (
     `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq`
     + `?tqx=out:csv`
@@ -56,6 +56,7 @@ const csvUrlById = (tab, wantId) => {
     + `&cachebust=${Date.now()}`
   );
 };
+
 
 function loadRowById(tab, wantId){
   return new Promise((resolve, reject) => {
