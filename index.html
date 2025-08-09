@@ -105,21 +105,56 @@
       }
     })();
 
-    function loadOneTab(tab){
-      return new Promise((resolve, reject) => {
-        Papa.parse(csvUrl(tab), {
-          download: true,
-          header: true,
-          skipEmptyLines: true,
-          complete: (res) => {
-            const rows = res.data || [];
-            const match = rows.find(r => (String(r["ลำดับ"]||"").trim() === id));
-            resolve(match || null);
-          },
-          error: (err) => reject(err)
-        });
-      });
+    function normKey(s){
+  return (s||"")
+    .replace(/[\u200B-\u200D\uFEFF]/g,"") // ลบตัวซ่อน
+    .replace(/\s+/g,"")                   // ลบช่องว่างทั้งหมด
+    .trim();
+}
+
+function remapRowKeys(row){
+  const want = {
+    "ลำดับ":"ลำดับ",
+    "ชื่อหนังสือ":"ชื่อหนังสือ",
+    "ผู้แต่ง":"ผู้แต่ง",
+    "เลขหมวดหมู่":"เลขหมวดหมู่",
+    "คำอธิบาย":"คำอธิบาย",
+    "รูปปก":"รูปปก",
+    "audio_url":"audio_url",
+    "คะแนน":"คะแนน"
+  };
+  const out = {};
+  const wantNorm = {};
+  Object.keys(want).forEach(k => wantNorm[normKey(k)] = want[k]);
+
+  for(const k in row){
+    const kn = normKey(k);
+    const target = wantNorm[kn];
+    if(target){
+      out[target] = (row[k] ?? "").toString().trim();
     }
+  }
+  return out;
+}
+
+function loadOneTab(tab){
+  return new Promise((resolve, reject) => {
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab)}`;
+    Papa.parse(url, {
+      download: true,
+      header: true,
+      skipEmptyLines: true,
+      complete: (res) => {
+        const rows = res.data || [];
+        const clean = rows.map(remapRowKeys);
+        const hit = clean.find(r => (r["ลำดับ"] || "") === id);
+        resolve(hit || null);
+      },
+      error: (err) => reject(err)
+    });
+  });
+}
+
 
     function render(b){
       setText(els.pageTitle, b["ชื่อหนังสือ"] || "ไม่ทราบชื่อ");
