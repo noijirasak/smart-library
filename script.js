@@ -166,6 +166,15 @@ function enableSafeAutoplay(audioEl) {
     }
   }
 
+function unmute() {
+    const audio = document.getElementById("audio");
+    if (audio) {
+        audio.muted = false; // ปิด mute
+        audio.play().catch(err => {
+            console.warn("ไม่สามารถเล่นเสียงอัตโนมัติได้:", err);
+        });
+    }
+}
 
 function render(b){
   if(els.pageTitle) els.pageTitle.textContent = b["ชื่อหนังสือ"] || "ไม่ทราบชื่อ";
