@@ -1,5 +1,5 @@
-// SmartLibrary JS build v10  (ควรเห็นบรรทัดนี้ใน Console)
-console.log("SmartLibrary JS build v10");
+// SmartLibrary JS build v11
+console.log("SmartLibrary JS build v11");
 
 // === CONFIG ===
 const SHEET_ID  = "1agyu31GI2YGD-42in3P7hZytsKNO-kg-JDdfvlJL7q0";
@@ -44,29 +44,20 @@ function remapRowKeys(row){
 function toArabicDigits(str){ const th="๐๑๒๓๔๕๖๗๘๙", ar="0123456789"; return String(str||"").replace(/[๐-๙]/g, d => ar[th.indexOf(d)]); }
 function onlyDigits(x){ return toArabicDigits(x).replace(/[^\d]/g,""); }
 
-// === ใช้ Google Sheets กรองตั้งแต่ต้นทาง — รองรับทั้งเลขและสตริง ===
-const csvUrlById = (tab, wantId) => {
-  const id = String(wantId).trim().replace(/'/g, "\\'");
-  const tq = `select * where A = '${id}'`;
-  return (
-    `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq`
-    + `?tqx=out:csv`
-    + `&sheet=${encodeURIComponent(tab)}`
-    + `&tq=${encodeURIComponent(tq)}`
-    + `&cachebust=${Date.now()}`
-  );
-};
+// === โหลดทั้งแท็บ (ไม่ใช้ tq) แล้วค่อยกรองหา id ที่หน้าเว็บ ===
+const csvUrlWhole = (tab) =>
+  `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab)}&cachebust=${Date.now()}`;
 
-
-function loadRowById(tab, wantId){
+function loadWholeTab(tab){
   return new Promise((resolve, reject) => {
-    const url = csvUrlById(tab, wantId);
-    Papa.parse(url, {
+    Papa.parse(csvUrlWhole(tab), {
       download: true, header: true, skipEmptyLines: true,
       complete: (res) => {
         const rows = (res.data || []).map(remapRowKeys);
-        showDebug({ mode:"byId", tab, wantId, url, rows: rows.length, sample: rows[0]||null });
-        resolve(rows[0] || null);
+        // โชว์ตัวอย่างลำดับ 5 แถวแรกไว้ดีบัก
+        const ids = rows.slice(0,5).map(r => r["ลำดับ"]);
+        showDebug({ mode:"whole", tab, rows: rows.length, sampleIds: ids, sample: rows[0]||null });
+        resolve(rows);
       },
       error: (err) => reject(err)
     });
@@ -80,21 +71,24 @@ function loadRowById(tab, wantId){
   const rawCat = (params.get("cat") || "").trim();
   if(!rawId) return showError('กรุณาระบุ <code>?id=เลขลำดับ</code> เช่น <code>?id=1</code>');
 
-  // เก็บเฉพาะตัวเลขจาก id/cat (กันพิมพ์พ่วงคำไทย/ช่องว่าง)
   const wantId = onlyDigits(rawId);
-  const cat    = (rawCat.match(/\d{3}/)?.[0]) || "";
+  const cat    = (rawCat.match(/\d{3}/)?.[0]) || ""; // เอาเฉพาะตัวเลข 3 หลัก
 
   (async () => {
     try{
       if (cat) {
-        const row = await loadRowById(cat, wantId);
-        if (!row) return showError(`ไม่พบลำดับ ${rawId} ในแท็บ ${cat}`);
-        return render(row);
+        // โหลดทั้งแท็บที่ระบุ แล้วกรองหา id
+        const rows = await loadWholeTab(cat);
+        const hit = rows.find(r => onlyDigits(r["ลำดับ"]) === wantId);
+        if (!hit) return showError(`ไม่พบลำดับ ${rawId} ในแท็บ ${cat}`);
+        return render(hit);
       }
+      // ไม่ระบุ cat: ค้นทุกแท็บ (แต่ละแท็บโหลดทั้งแผ่น)
       const hits = [];
       for (const tab of SHEET_TABS) {
-        const row = await loadRowById(tab, wantId);
-        if (row) hits.push({tab, row});
+        const rows = await loadWholeTab(tab);
+        const hit = rows.find(r => onlyDigits(r["ลำดับ"]) === wantId);
+        if (hit) hits.push({tab, row: hit});
       }
       if (hits.length === 0) return showError(`ไม่พบลำดับ ${rawId} ในแท็บใด ๆ`);
       if (hits.length > 1)  return showError(`พบลำดับ ${rawId} หลายแท็บ (${hits.map(h=>h.tab).join(", ")}) — โปรดระบุ &cat=`);
