@@ -1,18 +1,20 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-  <title>ห้องสมุดพูดได้ | Smart Library </title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Top 10 ยอดนักอ่าน | Smart Library</title>
+
+  <!-- ฟอนต์ / โครง topbar ใช้ชุดเดียวกับหน้าอื่น -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=K2D:wght@100..800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="home.css">
+  <link rel="stylesheet" href="readers.css?v=1">
 
-  <link rel="stylesheet" href="home.css"/>
-  
-  <!-- PapaParse -->
+  <!-- PapaParse โหลดข้อมูลจาก Google Sheets -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js" defer></script>
-  <script src="home.js" defer></script>
+  <script src="readers.js?v=1" defer></script>
 </head>
 <script>
 document.addEventListener('DOMContentLoaded', function(){
@@ -20,7 +22,7 @@ document.addEventListener('DOMContentLoaded', function(){
   const group = btn?.closest('.nav-group');
   if (!btn || !group) return;
 
-  // คลิกปุ่ม = เปิดเมนูให้ค้าง
+  // คลิกปุ่ม = เปิดเมนู (ค้างไว้)
   btn.addEventListener('click', function(e){
     e.preventDefault();
     group.classList.add('is-open');
@@ -31,15 +33,14 @@ document.addEventListener('DOMContentLoaded', function(){
     if (!group.contains(e.target)) group.classList.remove('is-open');
   });
 
-  // คลิกลิงก์หมวดย่อยแล้วค่อยปิด
-  const menu = group.querySelector('.nav-menu');
-  menu?.addEventListener('click', function(e){
-    if (e.target.closest('a')) group.classList.remove('is-open');
+  // คลิกลิงก์หมวดย่อยแล้วปิด (ก่อนนำทาง)
+  document.getElementById('catsMenu')?.addEventListener('click', function(e){
+    const a = e.target.closest('a');
+    if (a) group.classList.remove('is-open');
   });
 });
 </script>
-
-<body>
+<body class="page-leaderboard">
   <!-- Topbar -->
   <header class="topbar">
     <div class="topbar__brand">
@@ -72,32 +73,43 @@ document.addEventListener('DOMContentLoaded', function(){
     </nav>
   </header>
 
-  <!-- HERO BANNER -->
-  <section class="hero">
-    <div class="hero__slides" id="heroSlides">
-      <!-- สไลด์จะถูกเติมจาก JS -->
+  <main class="wrap">
+    <h1 id="page-title">Top 10 ยอดนักอ่าน</h1>
+    <div class="subtitle">จัดอันดับยอดนักอ่านตามจำนวนเล่มและแต้มสะสม</div>
+
+    <!-- Controls -->
+  <div class="controls">
+    <input id="q" type="search" placeholder="ค้นหาชื่อ/ชั้น/ห้อง" />
+    <div class="spacer"></div>
+    <button id="viewCard"  class="btn">แบบการ์ด</button>
+    <button id="viewTable" class="btn btn-ghost">แบบตาราง</button>
+    <a id="btnPrint" class="btn btn-ghost" href="#">พิมพ์</a>
+  </div>
+
+
+    <!-- Stats -->
+    <div class="stats">
+      <div class="stat"><div class="num" id="stat-people">-</div><div class="lbl">จำนวนนักอ่าน</div></div>
+      <div class="stat"><div class="num" id="stat-books">-</div><div class="lbl">เล่มทั้งหมด</div></div>
+      <div class="stat"><div class="num" id="stat-min">-</div><div class="lbl">เวลาฟังรวม (นาที)</div></div>
+      <div class="stat"><div class="num" id="stat-update">-</div><div class="lbl">อัปเดตล่าสุด</div></div>
     </div>
 
-    <div class="hero__overlay">
-      <h1 id="heroTitle"></h1>
-      <p class="hero__subtitle">เลื่อนซ้าย/ขวา หรือรออัตโนมัติ</p>
-      <div class="hero__controls">
-        <button id="prevHero" aria-label="ก่อนหน้า">‹</button>
-        <button id="nextHero" aria-label="ถัดไป">›</button>
-      </div>
-    </div>
+    <!-- Leaderboard (การ์ด) -->
+    <section id="grid" class="lb-grid" aria-live="polite"></section>
 
-    <div class="hero__dots" id="heroDots"></div>
-  </section>
+    <!-- Table view -->
+    <section id="tableWrap" class="lb-table-wrap" hidden>
+      <table>
+        <thead><tr>
+          <th>#</th><th>ชื่อ</th><th>ชั้น/ห้อง</th><th>เล่ม</th><th>เวลาฟัง (นาที)</th><th>เหรียญ</th>
+        </tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </section>
 
-  <!-- SECTIONS -->
-  <main id="sections">
-    
+    <section id="error" class="err" hidden></section>
   </main>
-
-  <footer class="foot">
-    © <span id="year"></span> Smart Library · หนังสือพูดได้
-  </footer>
 </body>
 </html>
 

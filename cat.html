@@ -3,16 +3,21 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-  <title>ห้องสมุดพูดได้ | Smart Library </title>
+  <title>Smart Library — รวมตามหมวด</title>
+
+  <!-- ฟอนต์ -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=K2D:wght@100..800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="home.css"/>
-  
+  <!-- ใช้สไตล์ร่วม + สไตล์เฉพาะหน้านี้ (ให้โหลด home.css ก่อน, cat.css ทีหลัง) -->
+  <link rel="stylesheet" href="home.css">
+  <link rel="stylesheet" href="cat.css">
+
   <!-- PapaParse -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js" defer></script>
-  <script src="home.js" defer></script>
+  <!-- สคริปต์ของหน้านี้ -->
+  <script src="cat.js" defer></script>
 </head>
 <script>
 document.addEventListener('DOMContentLoaded', function(){
@@ -20,7 +25,7 @@ document.addEventListener('DOMContentLoaded', function(){
   const group = btn?.closest('.nav-group');
   if (!btn || !group) return;
 
-  // คลิกปุ่ม = เปิดเมนูให้ค้าง
+  // คลิกปุ่ม = เปิดเมนู (ค้างไว้)
   btn.addEventListener('click', function(e){
     e.preventDefault();
     group.classList.add('is-open');
@@ -31,16 +36,14 @@ document.addEventListener('DOMContentLoaded', function(){
     if (!group.contains(e.target)) group.classList.remove('is-open');
   });
 
-  // คลิกลิงก์หมวดย่อยแล้วค่อยปิด
-  const menu = group.querySelector('.nav-menu');
-  menu?.addEventListener('click', function(e){
-    if (e.target.closest('a')) group.classList.remove('is-open');
+  // คลิกลิงก์หมวดย่อยแล้วปิด (ก่อนนำทาง)
+  document.getElementById('catsMenu')?.addEventListener('click', function(e){
+    const a = e.target.closest('a');
+    if (a) group.classList.remove('is-open');
   });
 });
 </script>
-
-<body>
-  <!-- Topbar -->
+<body class="page-detail">
   <header class="topbar">
     <div class="topbar__brand">
       <img src="img/logo.png" alt="Smart Library" class="logo">
@@ -72,32 +75,41 @@ document.addEventListener('DOMContentLoaded', function(){
     </nav>
   </header>
 
-  <!-- HERO BANNER -->
-  <section class="hero">
-    <div class="hero__slides" id="heroSlides">
-      <!-- สไลด์จะถูกเติมจาก JS -->
-    </div>
+  <main class="cat">
+    <div class="cat__titlebar">
+    <h1 id="catTitle">รวมหนังสือ</h1>
+    <span id="catBadge" class="cat-badge" style="display:none"></span>
+  </div>
+  <p id="catSub" class="cat__sub"></p>
 
-    <div class="hero__overlay">
-      <h1 id="heroTitle"></h1>
-      <p class="hero__subtitle">เลื่อนซ้าย/ขวา หรือรออัตโนมัติ</p>
-      <div class="hero__controls">
-        <button id="prevHero" aria-label="ก่อนหน้า">‹</button>
-        <button id="nextHero" aria-label="ถัดไป">›</button>
-      </div>
-    </div>
+      <div class="cat__controls">
+  <input id="q" class="ctl ctl--input" type="search"
+         placeholder="พิมพ์ชื่อหนังสือ/ผู้แต่ง แล้วกด Enter หรือกดปุ่มค้นหา">
+  <button id="btnSearch" class="ctl ctl--btn">ค้นหา</button>
 
-    <div class="hero__dots" id="heroDots"></div>
-  </section>
+  <select id="status" class="ctl">
+    <option value="">ทุกสถานะ</option>
+    <option value="1">ว่าง</option>
+    <option value="0">ยืม</option>
+    <option value="3">ซ่อม</option>
+  </select>
+  <select id="sort" class="ctl">
+    <option value="score">เรียง: คะแนนมาก → น้อย</option>
+    <option value="title">เรียง: ชื่อ A → Z</option>
+    <option value="author">เรียง: ผู้แต่ง A → Z</option>
+  </select>
+  <span id="count" class="cat__count">0 รายการ</span>
+</div>
 
-  <!-- SECTIONS -->
-  <main id="sections">
-    
+    </section>
+
+    <section id="grid" class="grid"></section>
+    <nav id="pager" class="pager"></nav>
+
+    <section id="empty" class="cat__empty" style="display:none">ไม่พบบันทึกที่ตรงเงื่อนไข</section>
+    <section id="error" class="cat__empty" style="display:none">โหลดข้อมูลผิดพลาด</section>
   </main>
-
-  <footer class="foot">
-    © <span id="year"></span> Smart Library · หนังสือพูดได้
-  </footer>
 </body>
 </html>
+
 

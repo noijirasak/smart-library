@@ -1,0 +1,79 @@
+/* ===== Category page ===== */
+.cat{ max-width:1200px; margin:0 auto; padding:20px 16px 34px; }
+.cat__head{ text-align:center; margin:8px 0 14px; }
+#catTitle{ margin:0; font-weight:800; letter-spacing:.2px; font-size:clamp(22px, 5.2vw, 34px); }
+.cat__sub{ color:var(--muted); margin:4px 0 12px; }
+
+.cat__controls{
+  display:flex; flex-wrap:wrap; gap:10px; justify-content:center;
+  margin:10px 0 6px;
+}
+.ctl{ padding:8px 12px; border:1px solid var(--border); border-radius:12px; background:#fff; font-family:'K2D',sans-serif; }
+.ctl--input{ min-width:260px; }
+.cat__count{ color:#0b1220; font-weight:700; padding:8px 4px; }
+
+/* Grid of cards */
+.grid{
+  display:grid; gap:16px; margin-top:12px;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+}
+@media (min-width:1024px){ .grid{ grid-template-columns: repeat(6, 1fr);} }
+@media (max-width:640px){  .grid{ grid-template-columns: repeat(2, 1fr);} }
+
+.cat__empty{ text-align:center; color:var(--muted); border:1px dashed var(--border); padding:18px; border-radius:14px; }
+
+/* ป้ายสถานะ (ใช้แนวเดียวกับหน้า home) */
+.badge{ position:absolute; top:8px; right:8px; padding:4px 10px; border-radius:999px; font-size:.8rem; font-weight:800; color:#fff; border:1px solid #ffffff99; box-shadow:0 2px 6px rgba(0,0,0,.15); }
+.badge--ok{background:#16a34a} .badge--busy{background:#ef4444} .badge--repair{background:#f59e0b} .badge--na{background:#6b7280}
+.badge--center{ top:50%; left:50%; right:auto; transform:translate(-50%,-50%); padding:8px 18px; font-size:1rem; border-width:2px; border-color:#fff; box-shadow:0 6px 18px rgba(0,0,0,.22); }
+.tint--busy::after,.tint--repair::after{ content:""; position:absolute; inset:0; border-radius:12px; pointer-events:none; }
+.tint--busy::after{ background:rgba(239,68,68,.16) } .tint--repair::after{ background:rgba(245,158,11,.18) }
+
+/* แถวชิปหมวด + ดาว */
+.card__row{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:6px; }
+.card__row .card__stars{ margin-top:0; white-space:nowrap; flex-shrink:0; }
+.card__chip{ display:inline-flex; align-items:center; gap:6px; padding:3px 10px; border-radius:999px; font-size:.78rem; font-weight:700; background:#f8fafc; border:1px solid var(--border); color:#0b1220; }
+.card__chip-dot{ width:6px; height:6px; border-radius:50%; }
+/* แถวหัวเรื่อง + ป้ายหมวดข้าง h1 */
+.cat__titlebar{
+  display:flex; align-items:center; justify-content:center;
+  gap:10px; flex-wrap:wrap; margin:8px 0 6px;
+}
+
+/* ป้ายหมวดสำหรับ h1 */
+.cat-badge{
+  display:inline-flex; align-items:center; gap:8px;
+  padding:6px 12px; border-radius:999px;
+  font-weight:800; font-size:.9rem; color:#0b1220;
+  background:#f8fafc; border:1px solid var(--border);
+}
+.cat-badge__dot{ width:8px; height:8px; border-radius:50%; }
+.pager{display:flex;gap:8px;justify-content:center;margin:18px 0;flex-wrap:wrap}
+.page-btn{min-width:36px;padding:8px 12px;border:1px solid var(--border);border-radius:10px;background:#fff;font-weight:700;cursor:pointer}
+.page-btn[disabled]{opacity:.5;cursor:not-allowed}
+.page-btn.active{background:#0b1220;color:#fff;border-color:#0b1220}
+/* ทำให้ topbar ไม่ทับเนื้อหา เฉพาะหน้า index */
+.page-detail .topbar{
+  position: sticky !important;   /* หรือใช้ position: static; ก็ได้ */
+  top: 0;
+}
+
+/* เผื่ออยากเผื่อระยะจากหัวอีกนิด */
+.page-detail .container{
+  padding-top: 8px;
+}
+/* ปุ่มค้นหา */
+.ctl--btn{
+  font-weight:900; cursor:pointer;
+  padding:8px 16px; border-radius:12px;
+  background:linear-gradient(180deg,#fff,#f8fafc);
+  border:1px solid var(--border);
+  transition:transform .15s ease, box-shadow .15s ease;
+}
+.ctl--btn:hover{ transform:translateY(-1px); box-shadow:0 2px 10px rgba(0,0,0,.06); }
+
+/* เพจจิ้ง */
+.pager{ display:flex; gap:8px; justify-content:center; margin:22px 0 40px; }
+.page-btn{ padding:8px 12px; border-radius:10px; border:1px solid var(--border); background:#fff; cursor:pointer; }
+.page-btn.active{ background:#111827; color:#fff; border-color:#111827; }
+.page-btn:disabled{ opacity:.4; cursor:not-allowed; }

@@ -21,6 +21,101 @@ const els = {
   audio: $("audio"),
 };
 
+// ===== Category map (สี + ชื่อหมวด) =====
+const CATEGORY = {
+  colors: {
+    "000": "#355E3B", // ความรู้ทั่วไป (เขียวเข้ม)
+    "100": "#00AEEF", // จิตวิทยา (ฟ้า)
+    "200": "#FFC300", // ศาสนา (เหลือง)
+    "300": "#00FF66", // สังคมศาสตร์ (เขียวมินท์)
+    "400": "#FF66CC", // ภาษา (ชมพู)
+    "500": "#0033CC", // วิทยาศาสตร์ (น้ำเงิน)
+    "600": "#FF0000", // วิทยาศาสตร์ประยุกต์ (แดง)
+    "700": "#8B4513", // ศิลปะ/นันทนาการ (น้ำตาล)
+    "800": "#800080", // วรรณคดี (ม่วง)
+    "900": "#FFFF00"  // ภูมิศาสตร์/ประวัติศาสตร์ (เหลืองสด)
+  },
+  labels: {
+    "000": "ความรู้ทั่วไป",
+    "100": "จิตวิทยา",
+    "200": "ศาสนา",
+    "300": "สังคมศาสตร์",
+    "400": "ภาษาศาสตร์",
+    "500": "วิทยาศาสตร์",
+    "600": "วิทยาศาสตร์ประยุกต์",
+    "700": "ศิลปะและนันทนาการ",
+    "800": "วรรณกรรม",
+    "900": "ภูมิศาสตร์และประวัติศาสตร์"
+  }
+};
+
+// แปลงเลขไทย → อารบิก
+function toArabicDigits(str){
+  const th="๐๑๒๓๔๕๖๗๘๙", ar="0123456789";
+  return String(str||"").replace(/[๐-๙]/g, d => ar[th.indexOf(d)]);
+}
+
+// เอา “เลขหมวดหลักร้อย” จากเลขเรียกหนังสือ
+// เช่น "895.911" -> "800", "523" -> "500"
+function getCatCode(callNumber){
+  const s = toArabicDigits(callNumber);
+  const m = s.match(/\d+(\.\d+)?/);         // จับเลขก้อนแรก
+  if(!m) return "000";
+  const n = Math.floor(parseFloat(m[0]));   // ตัดทศนิยม
+  const base = Math.floor(n/100)*100;       // ปัดลงหลักร้อย
+  return String(base).padStart(3,"0");
+}
+
+
+// เซ็ตสีให้แถบ + ชิปหมวด
+function applyCategoryUI(code){
+  const color = CATEGORY.colors[code] || "#cbd5e1";
+  // แถบหัวการ์ด
+  const bar = document.getElementById("catBar");
+  if (bar) bar.style.backgroundColor = color;
+
+  // จุดสีบนชิป
+  const dot = document.querySelector(".chip.primary .dot");
+  if (dot) dot.style.backgroundColor = color;
+
+  // ไล่โทนสีพื้น/กรอบชิปให้เข้ากับสีหมวด (จาง ๆ)
+  const chip = document.querySelector(".chip.primary");
+  if (chip){
+    chip.style.borderColor = color + "55";     // โปร่ง 33%
+    chip.style.background  = color + "14";     // โปร่ง 8%
+  }
+
+  // ตั้งค่าตัวแปร CSS ให้ทั้งหน้าใช้สีตามหมวด
+  const root = document.documentElement.style;
+  root.setProperty('--cat', color);
+  root.setProperty('--grad-start', color);
+  root.setProperty('--grad-end',   shadeColor(color, -20));
+
+  // ทำให้หัวเรื่องคมชัด: ไม่ใช้ clip-to-text/transparent
+  const pageTitle = document.getElementById("page-title");
+  if (pageTitle) {
+    pageTitle.style.removeProperty('-webkit-background-clip');
+    pageTitle.style.removeProperty('-webkit-text-fill-color');
+    pageTitle.style.background = 'none';
+    pageTitle.style.color = color;        // ใช้สีทึบ คมชัด
+  }
+}
+
+// ฟังก์ชันช่วยทำสีอ่อน/เข้มขึ้น
+function shadeColor(color, percent) {
+  const f = parseInt(color.slice(1),16),
+        t = percent < 0 ? 0 : 255,
+        p = percent < 0 ? percent*-1 : percent;
+  const R = f>>16, G = f>>8&0x00FF, B = f&0x0000FF;
+  return "#" + (
+    0x1000000 +
+    (Math.round((t-R)*p)+R)*0x10000 +
+    (Math.round((t-G)*p)+G)*0x100 +
+    (Math.round((t-B)*p)+B)
+  ).toString(16).slice(1);
+}
+
+
 function showError(msg){
   if(els.pageTitle) els.pageTitle.textContent = "เกิดข้อผิดพลาด";
   if(els.error){ els.error.style.display = "block"; els.error.innerHTML = msg; }
@@ -70,16 +165,57 @@ function loadWholeTab(tab){
   const rawId  = (params.get("id")  || "").trim();
   const rawCat = (params.get("cat") || "").trim();
   if(!rawId) return showError('กรุณาระบุ <code>?id=เลขลำดับ</code> เช่น <code>?id=1</code>');
-
+  const crumbCat   = document.getElementById('crumbCat');
+  const crumbTitle = document.getElementById('crumbTitle');
+  const btnBack    = document.getElementById('btnBackCat');
   const wantId = onlyDigits(rawId);
   const cat    = (rawCat.match(/\d{3}/)?.[0]) || ""; // เอาเฉพาะตัวเลข 3 หลัก
+
+   // ตั้งชื่อหมวดบน breadcrumb
+  if (crumbCat && cat){
+    const label = (typeof LABELS !== 'undefined' && LABELS[cat])
+      ? `หมวด ${cat} (${LABELS[cat]})` : `หมวด ${cat}`;
+    crumbCat.textContent = label;
+    crumbCat.href = `cat.html?cat=${cat}`;
+  }
+
+  // ปุ่มกลับไปดูทั้งหมดในหมวด
+  if (btnBack && cat) btnBack.href = `cat.html?cat=${cat}`;
+
+  // อัปเดตชื่อหนังสือบน breadcrumb เมื่อโหลดข้อมูลเสร็จ
+  const updateTitle = () => {
+    const t = document.getElementById('title')?.textContent?.trim();
+    if (t && crumbTitle){ crumbTitle.textContent = t; return true; }
+    return false;
+  };
+  if (!updateTitle()){
+    const timer = setInterval(()=>{ if(updateTitle()) clearInterval(timer); }, 200);
+    setTimeout(()=>clearInterval(timer), 5000);
+  }
+  const shareUrl  = encodeURIComponent(location.href);
+  const sLine = document.getElementById('shareLine');
+  const sFb   = document.getElementById('shareFb');
+  const sCopy = document.getElementById('shareCopy');
+  const titleNow = document.getElementById('title')?.textContent || document.title;
+  const shareText = encodeURIComponent(titleNow);
+
+  if (sLine) sLine.href = `https://line.me/R/msg/text/?${shareText}%20${shareUrl}`;
+  if (sFb)   sFb.href   = `https://www.facebook.com/sharer/sharer.php?u=${shareUrl}`;
+  if (sCopy) sCopy.addEventListener('click', e=>{
+    e.preventDefault();
+    navigator.clipboard.writeText(location.href);
+    sCopy.textContent = 'คัดลอกแล้ว ✓';
+    setTimeout(()=> sCopy.textContent = 'คัดลอกลิงก์', 1500);
+  });
+
 
   (async () => {
     try{
       if (cat) {
         // โหลดทั้งแท็บที่ระบุ แล้วกรองหา id
         const rows = await loadWholeTab(cat);
-        const hit = rows.find(r => onlyDigits(r["ลำดับ"]) === wantId);
+        const idNum = Number(wantId);
+        const hit = rows.find(r => Number(onlyDigits(r["ลำดับ"])) === idNum);
         if (!hit) return showError(`ไม่พบลำดับ ${rawId} ในแท็บ ${cat}`);
         return render(hit);
       }
@@ -96,8 +232,71 @@ function loadWholeTab(tab){
     }catch(e){
       showError("โหลดข้อมูลผิดพลาด: " + e);
     }
+
+  
   })();
 })();
+
+// สุ่ม array แบบง่าย ๆ
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+// เรนเดอร์การ์ดแนะนำ
+function renderRecommendations(rows, catCode, currentId, count=3){
+  const wrap = document.getElementById('reco-grid');
+  if(!wrap) return;
+  wrap.innerHTML = '';
+
+  // กรอง: ต้องมีปก/ชื่อ และไม่ใช่เล่มปัจจุบัน
+  const usable = rows.filter(r =>
+    (r['รูปปก'] || '').trim() &&
+    (r['ชื่อหนังสือ'] || '').trim() &&
+    (r['ลำดับ'] || '').trim() !== currentId
+  );
+
+  const picks = shuffle(usable).slice(0, count);
+
+  for(const b of picks){
+    const id = (b['ลำดับ'] || '').trim();
+    const title = (b['ชื่อหนังสือ'] || '').trim();
+    const author = (b['ผู้แต่ง'] || '').trim();
+    const cover = (b['รูปปก'] || '').trim();
+    const score = Number(b['คะแนน'] || 0);
+    const stars = '★'.repeat(score).padEnd(5, '☆');
+
+    const card = document.createElement('a');
+    card.href = `?id=${encodeURIComponent(id)}&cat=${catCode}`;
+    card.className = 'reco-link';
+    card.innerHTML = `
+      <article class="reco-card">
+        <img class="reco-cover" src="${cover}" alt="">
+        <h3 class="reco-title-text">${title}</h3>
+        <p class="reco-author">${author ? 'ผู้แต่ง: '+author : '&nbsp;'}</p>
+        <div class="reco-chips">
+          <span class="reco-chip"><span class="reco-dot"></span> หมวด ${catCode}</span>
+          <span class="reco-star">${stars}</span>
+        </div>
+      </article>
+    `;
+    wrap.appendChild(card);
+  }
+}
+
+// โหลดหมวดเดียว แล้วสร้างแนะนำ
+async function buildRecommendations(catCode, currentId){
+  try{
+    const rows = await loadWholeTab(catCode);
+    renderRecommendations(rows, catCode, currentId, 4);
+  }catch(e){
+    console.warn('recommendations failed:', e);
+  }
+}
 
 // ---- Autoplay ที่ชัวร์ทุกเบราว์เซอร์ ----
 function enableSafeAutoplay(audioEl) {
@@ -116,22 +315,7 @@ function enableSafeAutoplay(audioEl) {
 
   // โชว์ปุ่ม “เปิดเสียง” ให้ผู้ใช้กดครั้งแรกเพื่อปลด mute
   const wrap = document.getElementById('audioWrap') || audioEl.parentElement;
-  if (wrap && !document.getElementById('unmuteBtn')) {
-    const btn = document.createElement('button');
-    btn.id = 'unmuteBtn';
-    btn.textContent = 'เปิดเสียง';
-    Object.assign(btn.style, {
-      marginTop:'8px', padding:'6px 10px', borderRadius:'999px',
-      border:'1px solid #cbd5e1', background:'#e2e8f0', cursor:'pointer',
-      fontWeight:'600'
-    });
-    btn.addEventListener('click', () => {
-      audioEl.muted = false;
-      audioEl.play().catch(()=>{});
-      btn.remove();
-    });
-    wrap.appendChild(btn);
-  }
+
   // เผื่อผู้ใช้คลิกที่ไหนก็ได้บนหน้า → ปลดเสียงให้ด้วย
   const unmuteOnce = () => {
     audioEl.muted = false;
@@ -144,27 +328,6 @@ function enableSafeAutoplay(audioEl) {
   window.addEventListener('click', unmuteOnce, { capture:true, once:true });
   window.addEventListener('touchstart', unmuteOnce, { capture:true, once:true });
 }
-  // ดัก “การโต้ตอบครั้งแรก”
-  window.addEventListener('click', unmute, {capture:true, once:true});
-  window.addEventListener('touchstart', unmute, {capture:true, once:true});
-  window.addEventListener('keydown', unmute, {capture:true, once:true});
-
-  // สร้างปุ่ม “เปิดเสียง” เล็ก ๆ ข้างเครื่องเล่น (เผื่อผู้ใช้หาไม่เจอ)
-  if (!document.getElementById('unmuteBtn')) {
-    const wrap = document.getElementById('audioWrap') || audioEl.parentElement;
-    if (wrap) {
-      const btn = document.createElement('button');
-      btn.id = 'unmuteBtn';
-      btn.textContent = 'เปิดเสียง';
-      Object.assign(btn.style, {
-        marginTop: '8px', padding: '6px 10px', borderRadius: '999px',
-        border: '1px solid #cbd5e1', background:'#e2e8f0', cursor:'pointer',
-        fontWeight:'600'
-      });
-      btn.addEventListener('click', unmute);
-      wrap.appendChild(btn);
-    }
-  }
 
 function unmute() {
     const audio = document.getElementById("audio");
@@ -191,4 +354,22 @@ function render(b){
     enableSafeAutoplay(els.audio);   // <<< เพิ่มบรรทัดนี้
   }
   if(els.bookSection) els.bookSection.style.display = "grid";
+
+   // --- หมวด & แถบสี ---
+  const code = getCatCode(b["เลขหมวดหมู่"]);
+  const label = CATEGORY.labels[code] || "";
+  const catChip = document.getElementById("catChip");
+  if (catChip) catChip.textContent = label ? `หมวด ${code} (${label})` : `หมวด ${code}`;
+  applyCategoryUI(code);
+
+  // คะแนนดาว (ถ้ายังไม่ได้ทำ)
+  const scoreChip = document.getElementById("scoreChip");
+  if (scoreChip) scoreChip.textContent =
+      "★".repeat(Number(b["คะแนน"]||0)).padEnd(5,"☆");
+
+  // >>> เรียกสร้าง "หนังสือแนะนำ"
+  const params = new URLSearchParams(location.search);
+  const currentId = (params.get('id') || '').replace(/[^\d]/g,''); // ใช้เลขอย่างเดียว
+  buildRecommendations(code, currentId);
+  
 }
